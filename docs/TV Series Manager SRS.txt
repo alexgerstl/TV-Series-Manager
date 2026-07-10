@@ -1,0 +1,3471 @@
+TV Series Manager
+Software Requirements Specification (SRS)
+
+Version: 1.0
+
+Status: Draft
+
+Platform: Windows Desktop
+
+Technology Stack
+
+Electron
+React
+Node.js
+TypeScript
+SQLite
+Material UI
+Table of Contents
+Introduction
+Goals
+Technology Stack
+High-Level Architecture
+Folder Structure
+Configuration
+Database
+File Monitoring
+File Processing
+Subtitle Handling
+MKVToolNix Integration
+Web Lookup
+NAS Synchronization
+Tools
+User Interface
+Logging
+Testing
+Future Extensions
+1. Introduction
+1.1 Purpose
+
+TV Series Manager is a Windows desktop application designed to automate and simplify the management of locally stored television series.
+
+The application focuses on the following workflow:
+
+Download new episodes.
+Convert videos if necessary.
+Organize videos into the local library.
+Handle subtitle files.
+Detect embedded subtitles.
+Extract subtitles if desired.
+Check online for newer episodes.
+Synchronize the local library with a NAS.
+Provide one-click access to frequently used tools.
+
+Unlike applications such as Sonarr, this application never performs destructive operations automatically. Every file movement, deletion, or synchronization must be initiated by the user.
+
+1.2 Goals
+
+The application shall
+
+organize TV series
+minimize repetitive manual work
+provide a modern UI
+remain responsive during long-running tasks
+be modular and extensible
+be production-ready
+support future integrations
+1.3 Non Goals
+
+The application is not intended to
+
+download torrents
+automatically rename downloaded releases
+automatically move files without user interaction
+replace Plex or Jellyfin
+automatically synchronize without confirmation
+2. Technology Stack
+
+The application shall use the following stack.
+
+Backend
+Node.js LTS
+TypeScript
+Electron Main Process
+
+Libraries
+
+fs-extra
+chokidar
+axios
+cheerio
+better-sqlite3
+pino
+Frontend
+React
+TypeScript
+Material UI
+Database
+
+SQLite
+
+Reasons
+
+zero configuration
+file-based
+portable
+reliable
+Testing
+Vitest
+React Testing Library
+Packaging
+
+Electron Builder
+
+Generate
+
+Windows installer
+Portable executable
+3. High-Level Architecture
++-----------------------------------------------------+
+|                     React UI                        |
++-----------------------------------------------------+
+              |               |
+              | IPC           |
+              v               |
++-----------------------------------------------------+
+|               Electron Main Process                 |
++-----------------------------------------------------+
+|                                                     |
+|  File Monitor                                       |
+|  Processing Engine                                  |
+|  Parser                                             |
+|  MKVToolNix Service                                 |
+|  Subtitle Service                                   |
+|  NAS Service                                        |
+|  Lookup Service                                     |
+|  Settings Service                                   |
+|  Logging Service                                    |
+|                                                     |
++-----------------------------------------------------+
+              |
+              |
++-----------------------------------------------------+
+|                     SQLite                          |
++-----------------------------------------------------+
+
+              |
+
++-----------------------------------------------------+
+|               Windows File System                   |
++-----------------------------------------------------+
+
+              |
+
++-----------------------+      +----------------------+
+|     MKVToolNix        |      |        NAS           |
++-----------------------+      +----------------------+
+4. Project Structure
+src/
+
+    main/
+
+        app/
+
+        monitor/
+
+        parser/
+
+        processing/
+
+        lookup/
+
+            providers/
+
+        mkv/
+
+        nas/
+
+        tools/
+
+        logging/
+
+        database/
+
+        settings/
+
+        models/
+
+        services/
+
+    renderer/
+
+        components/
+
+        pages/
+
+        dialogs/
+
+        hooks/
+
+        store/
+
+        styles/
+
+        assets/
+
+    shared/
+
+tests/
+
+docs/
+5. Design Principles
+
+The application shall follow the following principles.
+
+Modular
+
+Every major feature shall live in its own module.
+
+Examples
+
+Parser
+
+Processing
+
+Lookup
+
+NAS
+
+MKVToolNix
+
+Logging
+Single Responsibility
+
+Each service should perform exactly one responsibility.
+
+Example
+
+MKVToolNixService
+
+only handles mkvmerge/mkvextract
+
+never file movement
+Dependency Injection
+
+Avoid global mutable state.
+
+Services should depend on interfaces where possible.
+
+Async
+
+Every long-running task shall execute asynchronously.
+
+Examples
+
+moving files
+scanning folders
+NAS synchronization
+subtitle extraction
+web lookup
+User Controlled
+
+The application never
+
+deletes files
+moves files
+copies files
+mounts drives
+
+without explicit user confirmation.
+
+6. Configuration
+Default Incoming Folder
+C:\Users\alexg\Incoming
+Default Converted Folder
+C:\Users\alexg\Converter\Converted
+Default Subtitle Folder
+C:\Users\alexg\Desktop
+Default Local Library
+C:\Users\alexg\Data\Serien
+NAS
+
+IP
+
+192.168.0.7
+
+Share
+
+\\192.168.0.7\video
+
+Mount
+
+X:
+
+Series
+
+X:\Serien
+
+Username
+
+admin
+
+Password
+
+Stored securely using
+
+Electron safeStorage
+
+or
+
+Windows Credential Manager
+
+Never persist passwords in plain SQLite.
+
+External Applications
+
+Default MKVCleaver
+
+C:\Users\alexg\mkvcleaver\MKVCleaver_x64_v0801.exe
+
+Default Video Converter
+
+C:\Program Files (x86)\WonderFox Soft\HD Video Converter Factory Pro\VideoConverterFactoryPro.exe
+
+Default MKVToolNix
+
+C:\Program Files\MKVToolNix\
+
+Containing
+
+mkvmerge.exe
+
+mkvextract.exe
+
+mkvinfo.exe
+
+mkvpropedit.exe
+Persistence
+
+Persist all configuration values in SQLite.
+
+Settings include
+
+paths
+window size
+window position
+theme
+NAS settings
+lookup configuration
+tool paths
+monitoring options
+cache settings
+7. Functional Requirements
+
+Each requirement is assigned a unique identifier.
+
+FR-001
+
+The application shall monitor configured folders.
+
+FR-002
+
+The application shall organize TV series.
+
+FR-003
+
+The application shall support MKV subtitle inspection.
+
+FR-004
+
+The application shall synchronize files with a NAS.
+
+FR-005
+
+The application shall support configurable external tools.
+
+FR-006
+
+The application shall persist configuration using SQLite.
+
+FR-007
+
+The application shall perform all destructive operations only after explicit user confirmation.
+
+FR-008
+
+The application shall remain responsive during all background operations.
+
+# 8. Database Design
+
+The application shall use a single SQLite database.
+
+The database shall be created automatically during the first application start.
+
+All schema updates shall be handled through versioned database migrations.
+
+---
+
+## 8.1 Tables
+
+### Settings
+
+Stores global application settings.
+
+| Column | Type | Description |
+|----------|------|-------------|
+| key | TEXT PRIMARY KEY | Setting key |
+| value | TEXT | Serialized value |
+
+Examples
+
+```text
+incomingPath
+
+convertedPath
+
+subtitlePath
+
+libraryPath
+
+nasIp
+
+nasShare
+
+nasDrive
+
+theme
+
+windowWidth
+
+windowHeight
+
+windowX
+
+windowY
+
+lookupInterval
+
+nasCheckInterval
+```
+
+---
+
+### ManagedSeries
+
+Stores every series known to the application.
+
+| Column | Type |
+|---------|------|
+| id | INTEGER PRIMARY KEY |
+| name | TEXT |
+| normalizedName | TEXT |
+| lookupEnabled | INTEGER |
+| created | DATETIME |
+| updated | DATETIME |
+
+Example
+
+```text
+House of the Dragon
+
+lookupEnabled = true
+```
+
+---
+
+### LookupHistory
+
+Stores lookup results.
+
+| Column | Type |
+|----------|------|
+| id | INTEGER PRIMARY KEY |
+| seriesId | INTEGER |
+| lookupDate | DATETIME |
+| highestLocalEpisode | TEXT |
+| latestOnlineEpisode | TEXT |
+| newEpisodeCount | INTEGER |
+| status | TEXT |
+| searchUrl | TEXT |
+
+---
+
+### MKVMetadata
+
+Stores cached metadata from mkvmerge.
+
+| Column | Type |
+|----------|------|
+| id | INTEGER PRIMARY KEY |
+| fullPath | TEXT |
+| fileSize | INTEGER |
+| modified | DATETIME |
+| json | TEXT |
+
+The JSON column stores the complete mkvmerge output.
+
+---
+
+### Logs
+
+| Column | Type |
+|----------|------|
+| id | INTEGER PRIMARY KEY |
+| timestamp | DATETIME |
+| level | TEXT |
+| source | TEXT |
+| message | TEXT |
+| exception | TEXT |
+
+---
+
+### ToolConfiguration
+
+Stores paths to external applications.
+
+| Column | Type |
+|----------|------|
+| id | INTEGER PRIMARY KEY |
+| name | TEXT |
+| executable | TEXT |
+
+Example
+
+```text
+MKVCleaver
+
+C:\Users\alexg\mkvcleaver\MKVCleaver_x64_v0801.exe
+```
+
+---
+
+# 9. File Monitoring
+
+The application continuously monitors
+
+- Incoming
+- Converted
+- Subtitle Folder (Desktop)
+
+using chokidar.
+
+No polling should be used if native Windows notifications are available.
+
+---
+
+## FR-100
+
+The application shall immediately update the UI when files are added.
+
+---
+
+## FR-101
+
+The application shall immediately update the UI when files are deleted.
+
+---
+
+## FR-102
+
+The application shall immediately update the UI when files are renamed.
+
+---
+
+## FR-103
+
+Monitoring shall continue while processing files.
+
+---
+
+## Refresh Button
+
+Provide
+
+Refresh
+
+which performs a complete rescan.
+
+---
+
+# 10. Incoming View
+
+The Monitor tab shall display one row per detected episode.
+
+Columns
+
+| Column |
+|----------|
+| Series |
+| Season |
+| Episode |
+| Filename |
+| Converted |
+| External Subtitle |
+| Embedded English |
+| Destination |
+| Status |
+
+---
+
+## Context Menu
+
+Right-clicking an episode provides
+
+- Process
+- Extract English Subtitles
+- Subtitle Information
+- Open File
+- Open Folder
+- Refresh Metadata
+- Copy Filename
+
+---
+
+## Double Click
+
+Double-click opens
+
+Media Information Dialog
+
+---
+
+# 11. Filename Parsing
+
+Create
+
+ParserService
+
+The parser must correctly detect
+
+Series
+
+Season
+
+Episode
+
+from common release names.
+
+Supported
+
+```text
+Series.Name.S01E02
+
+Series Name S01E02
+
+Series_Name_1x02
+
+Series.Name.102
+
+Series.Name.2024.S01E01
+```
+
+The parser should ignore
+
+- resolution
+- codec
+- release group
+- HDR flags
+
+Examples
+
+Ignore
+
+```text
+720p
+
+1080p
+
+2160p
+
+WEB-DL
+
+BluRay
+
+HMAX
+
+NF
+
+AMZN
+
+HDR
+
+HEVC
+
+x265
+
+AAC
+
+DDP5.1
+
+NTb
+
+RARBG
+```
+
+---
+
+## Parser Output
+
+Example
+
+Filename
+
+```text
+House.of.the.Dragon.S03E03.720p.HMAX.WEB-DL.DDP5.1.H.264-NTb.mkv
+```
+
+Returns
+
+```json
+{
+  "series":"House of the Dragon",
+  "season":3,
+  "episode":3
+}
+```
+
+---
+
+# 12. Folder Naming
+
+Folder names shall follow
+
+```text
+seriesname.S01
+```
+
+Examples
+
+```text
+house.of.the.dragon.S03
+
+breaking.bad.S02
+
+cape.fear.S01
+```
+
+Rules
+
+- lowercase
+- spaces become dots
+- remove duplicate dots
+- remove trailing dots
+- preserve season suffix
+
+---
+
+# 13. Processing Engine
+
+The Processing Engine performs all move operations.
+
+It is started only after pressing
+
+Process Files
+
+---
+
+## Processing Order
+
+For every detected episode
+
+Step 1
+
+Determine destination folder.
+
+If missing
+
+Create folder.
+
+---
+
+Step 2
+
+Determine whether converted version exists.
+
+If yes
+
+Use converted version.
+
+Delete original incoming file afterwards.
+
+---
+
+Step 3
+
+If converted version does not exist
+
+Use incoming version.
+
+---
+
+Step 4
+
+Search subtitle folder.
+
+Supported
+
+```text
+srt
+
+ass
+
+idx
+
+sub
+```
+
+---
+
+Step 5
+
+Inspect MKV for embedded subtitles.
+
+---
+
+Step 6
+
+If external subtitle missing
+
+and English subtitles exist inside MKV
+
+Ask
+
+```text
+External subtitle not found.
+
+Embedded English subtitles are available.
+
+Extract them before processing?
+
+[Extract]
+
+[Skip]
+
+[Cancel]
+```
+
+---
+
+Step 7
+
+Move video.
+
+Move subtitle.
+
+Rename subtitle.
+
+---
+
+## Batch Processing
+
+Process every detected series.
+
+Example
+
+Incoming
+
+```text
+House.of.the.Dragon
+
+The.Bear
+
+Andor
+
+Dexter
+```
+
+All four processed.
+
+---
+
+Progress dialog
+
+Displays
+
+Current file
+
+Progress
+
+Estimated remaining time
+
+Current operation
+
+---
+
+Cancellation
+
+User may cancel.
+
+Current operation completes.
+
+Remaining operations stop.
+
+---
+
+# 14. Subtitle Handling
+
+Supported extensions
+
+```text
+srt
+
+ass
+
+idx
+
+sub
+```
+
+---
+
+## External Matching
+
+Subtitle matches when
+
+Series
+
+Season
+
+Episode
+
+are identical.
+
+Filename differences are ignored.
+
+---
+
+## Rename
+
+After moving
+
+Rename subtitle
+
+to
+
+Video filename
+
+Example
+
+Video
+
+```text
+House.of.the.Dragon.S03E03.720p.HMAX.WEB-DL.DDP5.1.H.264-NTb.mkv
+```
+
+Subtitle
+
+```text
+House.of.the.Dragon.S03E03.720p.HMAX.WEB-DL.DDP5.1.H.264-NTb.srt
+```
+
+---
+
+## Existing Subtitle
+
+If destination already contains
+
+same subtitle
+
+Ask
+
+Overwrite?
+
+Replace?
+
+Skip?
+
+---
+
+## Multiple Subtitles
+
+If
+
+English
+
+English Forced
+
+English SDH
+
+exist
+
+Display all.
+
+Allow user selection.
+
+Default action
+
+Extract all English subtitles.
+
+---
+
+# Acceptance Criteria
+
+✓ Directory created automatically.
+
+✓ Converted version preferred.
+
+✓ Incoming deleted only after successful move.
+
+✓ Subtitle renamed correctly.
+
+✓ Multiple series processed in one operation.
+
+✓ UI remains responsive.
+
+✓ Errors logged.
+
+✓ User confirmation before destructive actions.
+
+# 15. MKVToolNix Integration
+
+## Overview
+
+The application shall integrate the MKVToolNix suite to inspect MKV containers and extract embedded subtitle tracks.
+
+The integration shall be optional. If MKVToolNix is not installed or configured, all other application features shall continue functioning normally.
+
+All interaction with MKVToolNix shall be encapsulated in a dedicated service named `MKVToolNixService`.
+
+No other module shall invoke MKVToolNix executables directly.
+
+---
+
+# 15.1 Supported Executables
+
+The application shall support the following executables.
+
+| Executable | Required | Purpose |
+|------------|----------|---------|
+| mkvmerge.exe | Yes | Inspect container metadata |
+| mkvextract.exe | Yes | Extract subtitle tracks |
+| mkvinfo.exe | Optional | Display detailed container information |
+| mkvpropedit.exe | Optional | Future metadata editing |
+
+Default installation directory
+
+```text
+C:\Program Files\MKVToolNix\
+```
+
+The executable paths shall be configurable and persisted in SQLite.
+
+---
+
+# FR-200
+
+Validate every executable during application startup.
+
+Display
+
+✓ Available
+
+or
+
+✗ Missing
+
+inside the Tools page.
+
+---
+
+# 15.2 MKVToolNix Service
+
+Create a reusable service.
+
+Public interface
+
+```typescript
+interface MKVToolNixService {
+
+inspectContainer(file)
+
+getVideoTracks(file)
+
+getAudioTracks(file)
+
+getSubtitleTracks(file)
+
+getEnglishSubtitleTracks(file)
+
+extractSubtitleTrack(file, trackId, output)
+
+extractEnglishSubtitles(file)
+
+refreshMetadata(file)
+
+validateInstallation()
+
+}
+```
+
+No UI code may directly execute mkvmerge or mkvextract.
+
+---
+
+# 15.3 Reading Container Information
+
+Execute
+
+```bash
+mkvmerge -i -F json "<filename>"
+```
+
+The JSON output shall be parsed into application models.
+
+Never parse console text output.
+
+---
+
+# 15.4 Metadata Cache
+
+Container information shall be cached.
+
+Cache key
+
+- full path
+- file size
+- modification timestamp
+
+If all values match
+
+Do not execute mkvmerge again.
+
+---
+
+FR-201
+
+The application shall automatically invalidate cached metadata whenever the video file changes.
+
+---
+
+# 15.5 Media Information Dialog
+
+Double-clicking a video shall open a Media Information dialog.
+
+Tabs
+
+General
+
+Video
+
+Audio
+
+Subtitles
+
+Container
+
+---
+
+## General
+
+Display
+
+Filename
+
+Location
+
+File Size
+
+Duration
+
+Container
+
+Created
+
+Modified
+
+Checksum (future)
+
+---
+
+## Video
+
+Display
+
+Track ID
+
+Codec
+
+Resolution
+
+Frame Rate
+
+Bitrate
+
+HDR
+
+Default
+
+Language (if present)
+
+---
+
+Example
+
+```text
+Track 0
+
+Codec: AVC H.264
+
+Resolution: 1280x720
+
+Frame Rate: 23.976
+
+HDR: No
+```
+
+---
+
+## Audio
+
+Display every audio track.
+
+Columns
+
+Track ID
+
+Language
+
+Codec
+
+Channels
+
+Sample Rate
+
+Default
+
+Commentary
+
+---
+
+Highlight English tracks.
+
+Recognize
+
+English
+
+eng
+
+en
+
+---
+
+Example
+
+```text
+Track 1
+
+English
+
+AAC
+
+6 Channels
+
+Default
+```
+
+---
+
+# 15.6 Subtitle Detection
+
+Display every subtitle track.
+
+Columns
+
+Track ID
+
+Language
+
+Codec
+
+Track Name
+
+Default
+
+Forced
+
+Hearing Impaired
+
+Commentary
+
+Text/Image
+
+---
+
+Example
+
+```text
+Track 2
+
+English
+
+SubRip
+
+Default
+
+Text
+```
+
+---
+
+Example
+
+```text
+Track 4
+
+English Forced
+
+PGS
+
+Forced
+
+Image
+```
+
+---
+
+FR-202
+
+Recognize English subtitles using
+
+- en
+- eng
+- English
+- English SDH
+- English CC
+- English Forced
+
+---
+
+FR-203
+
+Display every detected English subtitle.
+
+Do not collapse multiple tracks.
+
+---
+
+# 15.7 Incoming View Integration
+
+Add two new columns.
+
+Embedded English
+
+Audio
+
+Example
+
+| Embedded English | Audio |
+|------------------|-------|
+| None | English 5.1 |
+| 1 Track | English 2.0 |
+| 3 Tracks | English + German |
+
+Hovering over the value shall display a tooltip listing every track.
+
+---
+
+# 15.8 Subtitle Details Dialog
+
+Toolbar
+
+Refresh Metadata
+
+Extract Selected
+
+Extract All English
+
+Copy Metadata
+
+Export JSON
+
+---
+
+Track table
+
+Track ID
+
+Language
+
+Codec
+
+Default
+
+Forced
+
+Hearing Impaired
+
+Track Name
+
+Size (if available)
+
+---
+
+Highlight English tracks.
+
+---
+
+# 15.9 English Subtitle Extraction
+
+Provide
+
+Extract English Subtitles
+
+Context menu
+
+Toolbar
+
+Button
+
+---
+
+Destination
+
+Configured subtitle directory.
+
+Default
+
+```text
+C:\Users\alexg\Desktop
+```
+
+---
+
+The application shall automatically determine every English subtitle track.
+
+Execute
+
+```bash
+mkvextract tracks
+```
+
+for each matching track.
+
+---
+
+FR-204
+
+If one English subtitle exists
+
+Generate
+
+```text
+VideoName.srt
+```
+
+---
+
+FR-205
+
+If multiple English subtitles exist
+
+Generate deterministic filenames.
+
+Examples
+
+```text
+VideoName.eng.default.srt
+
+VideoName.eng.forced.srt
+
+VideoName.eng.sdh.srt
+
+VideoName.eng.commentary.srt
+```
+
+Repeated extraction shall overwrite the same filenames unless the user chooses another option.
+
+---
+
+# 15.10 Batch Extraction
+
+Provide
+
+Extract English Subtitles for All
+
+The operation processes every MKV currently displayed.
+
+Display
+
+Current File
+
+Current Track
+
+Progress
+
+Estimated Remaining Time
+
+Completed
+
+Failed
+
+Skipped
+
+---
+
+FR-206
+
+Errors during extraction shall not stop processing of remaining files.
+
+---
+
+# 15.11 Automatic Processing Integration
+
+When Process Files is executed
+
+Perform
+
+Step 1
+
+Search external subtitle.
+
+If found
+
+Continue.
+
+---
+
+Step 2
+
+If not found
+
+Inspect MKV.
+
+---
+
+Step 3
+
+If English subtitles exist
+
+Prompt
+
+```
+No external subtitle found.
+
+Embedded English subtitles detected.
+
+Extract subtitles before moving?
+
+[Extract]
+
+[Skip]
+
+[Cancel]
+```
+
+---
+
+Step 4
+
+Extract.
+
+Continue processing.
+
+---
+
+Step 5
+
+Move extracted subtitles together with the video.
+
+---
+
+# 15.12 Subtitle Preferences
+
+Settings page
+
+Subtitle Preferences
+
+Preferred extraction order
+
+Default
+
+1 English Default
+
+2 English Forced
+
+3 English
+
+4 English SDH
+
+5 English CC
+
+6 Commentary
+
+Option
+
+☐ Extract all English subtitles
+
+When disabled
+
+Extract only the highest-priority subtitle.
+
+---
+
+# 15.13 Supported Subtitle Codecs
+
+Recognize
+
+SubRip
+
+SSA
+
+ASS
+
+USF
+
+VobSub
+
+PGS
+
+DVB
+
+Teletext
+
+WebVTT
+
+---
+
+Text-based formats
+
+shall be marked with
+
+📝
+
+Image-based formats
+
+shall be marked with
+
+🖼
+
+---
+
+# 15.14 Export Metadata
+
+The Subtitle Information dialog shall support
+
+Copy JSON
+
+Save JSON
+
+Export CSV
+
+for debugging.
+
+---
+
+# 15.15 Error Handling
+
+Examples
+
+MKVToolNix missing
+
+Executable missing
+
+JSON parsing failed
+
+Extraction failed
+
+Permission denied
+
+Corrupted MKV
+
+Unsupported subtitle codec
+
+Errors shall
+
+be logged
+
+not crash the application
+
+allow processing of remaining files
+
+---
+
+# 15.16 Tools Integration
+
+The Tools page shall contain
+
+MKVToolNix
+
+Status
+
+Executable
+
+Version
+
+Buttons
+
+Browse
+
+Open Folder
+
+Test Installation
+
+Refresh
+
+Display
+
+✓ mkvmerge
+
+✓ mkvextract
+
+✓ mkvinfo
+
+✓ mkvpropedit
+
+---
+
+# Sequence Diagram
+
+```
+User
+
+↓
+
+Clicks Process
+
+↓
+
+Processing Engine
+
+↓
+
+External Subtitle?
+
+↓
+
+YES → Move File
+
+↓
+
+NO
+
+↓
+
+MKVToolNix Service
+
+↓
+
+English Subtitle?
+
+↓
+
+NO
+
+↓
+
+Move File
+
+↓
+
+YES
+
+↓
+
+Extract
+
+↓
+
+Move Subtitle
+
+↓
+
+Move Video
+
+↓
+
+Complete
+```
+
+---
+
+# Acceptance Criteria
+
+✓ Metadata cached
+
+✓ Cached metadata invalidated correctly
+
+✓ English subtitles detected
+
+✓ Multiple English tracks displayed
+
+✓ Extraction works
+
+✓ Batch extraction works
+
+✓ User confirmation before extraction
+
+✓ Metadata dialog displays correctly
+
+✓ Processing continues after extraction
+
+✓ Errors logged
+
+✓ UI responsive
+
+✓ No duplicated subtitle filenames
+
+✓ MKVToolNix completely isolated behind a service interface
+
+# 16. Web Lookup
+
+## Overview
+
+The application shall support checking whether new TV series episodes are available online.
+
+The application **shall not download episodes**.
+
+The application **shall not automatically perform lookups**.
+
+Every lookup must be initiated explicitly by the user.
+
+---
+
+# 16.1 Managed Series
+
+The application shall maintain a list of managed series.
+
+Each entry contains
+
+| Property | Description |
+|-----------|-------------|
+| Name | Display name |
+| Normalized Name | Used for searches |
+| Lookup Enabled | Include in lookup |
+| Highest Local Season | Automatically determined |
+| Highest Local Episode | Automatically determined |
+| Last Lookup | Timestamp |
+| Latest Online Episode | Cached result |
+| New Episode Count | Cached result |
+
+---
+
+## FR-300
+
+The user shall be able to
+
+- Add a series
+- Remove a series
+- Rename a series
+- Enable lookup
+- Disable lookup
+
+---
+
+# 16.2 Determining Local Progress
+
+Before every lookup
+
+The application scans the local library.
+
+Example
+
+```
+house.of.the.dragon.S03
+
+Episodes
+
+S03E01
+
+S03E02
+
+S03E03
+```
+
+Highest episode
+
+```
+S03E03
+```
+
+Lookup begins at
+
+```
+S03E04
+```
+
+---
+
+## FR-301
+
+The highest local episode shall always be calculated automatically.
+
+---
+
+# 16.3 URL Generation
+
+Base URL
+
+```
+https://log.rlsbb.ru/search/
+```
+
+Search format
+
+```
+?s=<SeriesName>+S03&cat=tv-shows
+```
+
+---
+
+Series names shall be normalized.
+
+Normalization rules
+
+Remove
+
+- parentheses
+
+- punctuation
+
+- duplicate spaces
+
+- four digit years
+
+Example
+
+```
+Dexter (2021)
+```
+
+↓
+
+```
+Dexter
+```
+
+Example
+
+```
+Law & Order: SVU
+```
+
+↓
+
+```
+Law Order SVU
+```
+
+Final URL
+
+```
+https://log.rlsbb.ru/search/?s=Law+Order+SVU+S26&cat=tv-shows
+```
+
+---
+
+## FR-302
+
+Generate URLs only through a dedicated LookupProvider.
+
+---
+
+# 16.4 Lookup Provider
+
+Create
+
+```
+RLSBBProvider
+```
+
+Interface
+
+```typescript
+interface LookupProvider {
+
+search(series)
+
+parseResults(html)
+
+findLatestEpisode()
+
+}
+```
+
+The application shall only depend upon this interface.
+
+---
+
+Future providers
+
+- TVMaze
+
+- TMDB
+
+- Sonarr
+
+- RSS
+
+shall be addable without modifying existing code.
+
+---
+
+# 16.5 Lookup Execution
+
+Lookup begins only after
+
+```
+Check for New Episodes
+```
+
+is clicked.
+
+---
+
+Progress dialog
+
+Display
+
+```
+Checking
+
+House of the Dragon
+
+2 / 18
+
+██████░░░░░
+```
+
+Allow
+
+Cancel
+
+---
+
+Failures shall not stop remaining lookups.
+
+---
+
+# 16.6 Parsing
+
+Parse HTML using
+
+Cheerio
+
+Determine
+
+Season
+
+Episode
+
+Title
+
+Release Date
+
+URL
+
+---
+
+FR-303
+
+Only TV releases shall be considered.
+
+Ignore
+
+Movies
+
+Games
+
+Applications
+
+Music
+
+---
+
+# 16.7 Determining New Episodes
+
+Example
+
+Local
+
+```
+S03E03
+```
+
+Website
+
+```
+S03E04
+
+S03E05
+
+S03E06
+```
+
+Result
+
+```
+3 new episodes
+```
+
+---
+
+FR-304
+
+Display total number of newer episodes.
+
+---
+
+# 16.8 Lookup Results
+
+Table
+
+| Column |
+|----------|
+| Series |
+| Local |
+| Latest Online |
+| New Episodes |
+| Status |
+| Open |
+
+---
+
+Status
+
+🟢 Up To Date
+
+🟡 New Episodes
+
+🔴 Lookup Failed
+
+---
+
+Rows containing new episodes
+
+shall
+
+- use green background
+
+- bold font
+
+- NEW badge
+
+---
+
+# 16.9 Open Search
+
+Each row contains
+
+Open
+
+Click
+
+Launch default browser
+
+Open
+
+Generated search URL
+
+No embedded browser.
+
+---
+
+# 16.10 Persistence
+
+Persist
+
+Last Lookup
+
+Latest Episode
+
+New Episodes
+
+Search URL
+
+Lookup Status
+
+---
+
+# 16.11 Notifications
+
+Optional
+
+Show Windows notification
+
+```
+House of the Dragon
+
+3 new episodes available.
+```
+
+---
+
+# Acceptance Criteria
+
+✓ Manual lookup only
+
+✓ URL generated correctly
+
+✓ New episodes detected
+
+✓ Results highlighted
+
+✓ Browser opens correctly
+
+✓ Cached lookup restored
+
+✓ Provider isolated
+
+---
+
+# 17. NAS Synchronization
+
+## Overview
+
+Synchronize
+
+Local Library
+
+↓
+
+NAS
+
+No automatic synchronization.
+
+All actions require user confirmation.
+
+---
+
+# 17.1 NAS Status
+
+The NAS is not running continuously.
+
+The application must continuously indicate
+
+Online
+
+Offline
+
+Checking
+
+Unknown
+
+---
+
+Status indicator
+
+Bottom status bar
+
+```
+🟢 NAS Online
+
+🟡 Checking
+
+🔴 Offline
+```
+
+---
+
+Hover tooltip
+
+Display
+
+IP
+
+Drive
+
+Mounted
+
+Last Check
+
+Last Success
+
+---
+
+# 17.2 Availability Checks
+
+Perform
+
+Application startup
+
+Every 60 seconds
+
+Immediately before
+
+Mount
+
+Compare
+
+Copy
+
+Move
+
+The interval shall be configurable.
+
+---
+
+FR-400
+
+Do not attempt synchronization while offline.
+
+---
+
+# 17.3 Mount
+
+Button
+
+Mount NAS
+
+Execute
+
+```
+net use X: \\192.168.0.7\video /user:admin
+```
+
+Prompt for credentials if required.
+
+---
+
+Button disabled
+
+while mounting.
+
+---
+
+# 17.4 Unmount
+
+Execute
+
+```
+net use X: /delete
+```
+
+Update status immediately.
+
+---
+
+# 17.5 Compare
+
+NAS structure
+
+```
+X:\Serien
+
+house.of.the.dragon.S03
+
+breaking.bad.S02
+```
+
+Compare
+
+Local
+
+↓
+
+NAS
+
+Only display
+
+Files existing locally
+
+but missing on NAS.
+
+---
+
+Table
+
+Series
+
+Season
+
+Episode
+
+Filename
+
+Size
+
+Modified
+
+---
+
+FR-401
+
+Already existing NAS files shall not be displayed.
+
+---
+
+# 17.6 Copy Missing Files
+
+Button
+
+Copy Missing Files
+
+Copy every displayed file.
+
+Never overwrite.
+
+---
+
+Progress
+
+Current File
+
+Remaining
+
+Speed
+
+Elapsed
+
+---
+
+# 17.7 Move Missing Files
+
+Button
+
+Move Missing Files
+
+For every file
+
+Copy
+
+↓
+
+Verify
+
+↓
+
+Delete Local
+
+↓
+
+Update Table
+
+---
+
+FR-402
+
+Delete only after verification.
+
+---
+
+# 17.8 Failure Recovery
+
+NAS disappears
+
+during synchronization.
+
+Immediately
+
+Pause operation.
+
+Display
+
+```
+NAS connection lost.
+
+Synchronization paused.
+```
+
+Do not delete
+
+uncopied files.
+
+Already copied files remain.
+
+Allow
+
+Resume
+
+Retry
+
+Cancel
+
+---
+
+# 17.9 Workflow
+
+Offline
+
+↓
+
+Disable
+
+Compare
+
+Copy
+
+Move
+
+---
+
+Online
+
+↓
+
+Enable
+
+Mount
+
+---
+
+Mounted
+
+↓
+
+Enable
+
+Compare
+
+Copy
+
+Move
+
+---
+
+# 17.10 Open NAS Folder
+
+Workflow shortcut
+
+Open NAS Series Folder
+
+If
+
+Offline
+
+↓
+
+Disabled
+
+If
+
+Online
+
+Not Mounted
+
+↓
+
+Offer
+
+Mount now?
+
+YES
+
+↓
+
+Mount
+
+↓
+
+Open Explorer
+
+---
+
+# 17.11 Synchronization Logging
+
+Every copied file
+
+Log
+
+Timestamp
+
+Source
+
+Destination
+
+Duration
+
+Verification
+
+Result
+
+---
+
+Example
+
+```
+Copied
+
+House.of.the.Dragon.S03E03.mkv
+
+Duration
+
+2.1 s
+
+Verified
+
+YES
+```
+
+---
+
+# 17.12 Sequence Diagram
+
+```
+User
+
+↓
+
+Compare
+
+↓
+
+NAS Online?
+
+↓
+
+NO
+
+↓
+
+Display Offline
+
+↓
+
+END
+
+YES
+
+↓
+
+Mounted?
+
+↓
+
+NO
+
+↓
+
+Mount
+
+↓
+
+Compare
+
+↓
+
+Missing Files
+
+↓
+
+Display List
+
+↓
+
+Copy
+
+↓
+
+Verify
+
+↓
+
+Delete Local (Move Only)
+
+↓
+
+Finished
+```
+
+---
+
+# Acceptance Criteria
+
+✓ Online detection works
+
+✓ Offline disables synchronization
+
+✓ Compare displays only missing files
+
+✓ Copy never overwrites
+
+✓ Move verifies first
+
+✓ Mount/Unmount works
+
+✓ Network failures handled
+
+✓ UI responsive
+
+✓ Logging complete
+
+✓ Resume supported
+
+# 18. Tools
+
+## Overview
+
+The application shall provide a dedicated **Tools** tab that gives one-click access to commonly used external applications, workflow shortcuts, and utilities.
+
+The Tools page shall be implemented as a reusable card or tile layout so additional tools can easily be added without modifying the UI.
+
+---
+
+# 18.1 External Applications
+
+The application shall support launching the following external applications.
+
+| Tool | Default Path |
+|-------|--------------|
+| MKVCleaver | `C:\Users\alexg\mkvcleaver\MKVCleaver_x64_v0801.exe` |
+| WonderFox HD Video Converter Factory Pro | `C:\Program Files (x86)\WonderFox Soft\HD Video Converter Factory Pro\VideoConverterFactoryPro.exe` |
+| MKVToolNix | Configured installation directory |
+
+Each application card shall provide:
+
+- Launch
+- Browse
+- Open Installation Folder
+- Restore Default
+- Status
+
+---
+
+## FR-500
+
+Before launching
+
+Verify
+
+- executable exists
+- executable is accessible
+
+Display
+
+```
+✓ Ready
+```
+
+or
+
+```
+Executable not found.
+```
+
+---
+
+# 18.2 MKVToolNix Tools
+
+Display
+
+```
+mkvmerge
+
+mkvextract
+
+mkvinfo
+
+mkvpropedit
+```
+
+Each executable shall display
+
+Version
+
+Location
+
+Status
+
+Buttons
+
+Browse
+
+Open Folder
+
+Test
+
+Refresh
+
+---
+
+# 18.3 SSH
+
+Provide
+
+```
+Open SSH Session
+```
+
+Default
+
+```
+ssh admin@192.168.0.7
+```
+
+Open Windows Terminal or the default terminal emulator.
+
+If OpenSSH is unavailable
+
+Display
+
+```
+OpenSSH client not installed.
+```
+
+---
+
+# 18.4 Workflow Shortcuts
+
+Provide one-click access to
+
+- Incoming Folder
+- Converted Folder
+- Subtitle Folder
+- Local Series Library
+- NAS Series Library
+
+Open using Windows Explorer.
+
+---
+
+## Open All Local Folders
+
+Provide
+
+```
+Open All Local Folders
+```
+
+Open
+
+Incoming
+
+Converted
+
+Desktop
+
+Library
+
+Each in its own Explorer window.
+
+Unavailable folders shall be skipped without cancelling the operation.
+
+---
+
+# 18.5 Folder Status
+
+Display
+
+| Folder | Status |
+|---------|--------|
+| Incoming | ✓ |
+| Converted | ✓ |
+| Subtitle | ✓ |
+| Library | ✓ |
+| NAS | Online / Offline |
+
+Status updates automatically.
+
+---
+
+# 19. Settings
+
+The Settings page shall contain the following sections.
+
+---
+
+## General
+
+Theme
+
+Language (future)
+
+Window behaviour
+
+Logging level
+
+---
+
+## Folder Configuration
+
+Incoming
+
+Converted
+
+Subtitle
+
+Library
+
+Buttons
+
+Browse
+
+Restore Defaults
+
+Open Folder
+
+---
+
+## MKVToolNix
+
+Configure
+
+mkvmerge
+
+mkvextract
+
+mkvinfo
+
+mkvpropedit
+
+---
+
+## NAS
+
+Configure
+
+IP
+
+Share
+
+Drive Letter
+
+Username
+
+Password
+
+Connection Timeout
+
+Availability Check Interval
+
+---
+
+## Web Lookup
+
+Configure
+
+Enabled Providers
+
+Maximum Concurrent Requests
+
+Lookup Timeout
+
+---
+
+## Subtitle Preferences
+
+Preferred extraction order
+
+Default
+
+1. English Default
+
+2. English Forced
+
+3. English
+
+4. English SDH
+
+5. English CC
+
+6. Commentary
+
+Checkbox
+
+```
+Extract all English subtitles
+```
+
+---
+
+## Advanced
+
+Database location
+
+Cache size
+
+Reset Cache
+
+Reset Settings
+
+Export Settings
+
+Import Settings
+
+---
+
+# 20. User Interface
+
+Tabs
+
+```
+Monitor
+
+Lookup
+
+NAS Sync
+
+Tools
+
+Settings
+
+Logs
+```
+
+---
+
+## Monitor
+
+Displays
+
+Incoming episodes
+
+Toolbar
+
+Refresh
+
+Process Files
+
+Extract English Subtitles
+
+Extract All
+
+---
+
+## Lookup
+
+Displays
+
+Managed Series
+
+Lookup Results
+
+Buttons
+
+Check for New Episodes
+
+Open Search
+
+---
+
+## NAS Sync
+
+Displays
+
+NAS status
+
+Missing files
+
+Buttons
+
+Mount
+
+Unmount
+
+Compare
+
+Copy Missing
+
+Move Missing
+
+---
+
+## Tools
+
+Displays
+
+Applications
+
+Workflow
+
+MKVToolNix
+
+SSH
+
+---
+
+## Settings
+
+Displays
+
+Configuration
+
+---
+
+## Logs
+
+Displays
+
+Application log
+
+Search
+
+Filter
+
+Copy
+
+Export
+
+Clear
+
+---
+
+# 21. Logging
+
+Every operation shall be logged.
+
+Examples
+
+Application startup
+
+Folder monitoring
+
+File processing
+
+Subtitle extraction
+
+Web lookup
+
+NAS synchronization
+
+External tool launches
+
+Errors
+
+---
+
+Each log entry
+
+Timestamp
+
+Level
+
+Component
+
+Message
+
+Exception
+
+Duration
+
+---
+
+Support
+
+Search
+
+Filter
+
+Export
+
+---
+
+# 22. Error Handling
+
+The application shall gracefully recover from
+
+Missing folders
+
+Permission denied
+
+NAS offline
+
+MKVToolNix missing
+
+Corrupted MKV
+
+Network failures
+
+Invalid filenames
+
+Duplicate files
+
+Database corruption
+
+---
+
+Errors shall
+
+be displayed
+
+be logged
+
+never crash the application
+
+allow continued processing where possible
+
+---
+
+# 23. Performance
+
+Requirements
+
+Application startup
+
+< 3 seconds
+
+Folder refresh
+
+< 2 seconds
+
+Metadata cache hit
+
+< 100 ms
+
+UI
+
+Always responsive
+
+Large libraries
+
+Support at least
+
+20,000 files
+
+without blocking the UI
+
+---
+
+# 24. Security
+
+Passwords shall never be stored in plaintext.
+
+Use
+
+Electron safeStorage
+
+or
+
+Windows Credential Manager
+
+Validate
+
+all user input
+
+Escape
+
+all HTML
+
+Prevent
+
+path traversal
+
+---
+
+# 25. Testing
+
+Unit tests
+
+Parser
+
+Processing Engine
+
+Lookup
+
+MKVToolNix Service
+
+NAS Service
+
+Database
+
+Integration tests
+
+File monitoring
+
+Processing workflow
+
+Subtitle extraction
+
+Synchronization
+
+UI tests
+
+React components
+
+Dialogs
+
+Settings
+
+---
+
+Target
+
+80%+ code coverage
+
+---
+
+# 26. Project Structure
+
+```
+src/
+
+    main/
+
+        app/
+
+        database/
+
+        logging/
+
+        lookup/
+
+            providers/
+
+        mkv/
+
+        monitor/
+
+        models/
+
+        nas/
+
+        parser/
+
+        processing/
+
+        services/
+
+        settings/
+
+        tools/
+
+    renderer/
+
+        components/
+
+        dialogs/
+
+        hooks/
+
+        pages/
+
+        store/
+
+        styles/
+
+    shared/
+
+tests/
+
+docs/
+```
+
+---
+
+# 27. Future Extensions
+
+The architecture shall allow adding
+
+Sonarr
+
+Plex
+
+Jellyfin
+
+qBittorrent
+
+Subtitle Edit
+
+MediaInfo
+
+FFmpeg
+
+Automatic subtitle download
+
+Additional lookup providers
+
+Multiple NAS devices
+
+Scheduled synchronization
+
+Docker backend
+
+Linux support
+
+macOS support
+
+Automatic video conversion
+
+Automatic subtitle extraction
+
+Media checksum verification
+
+Duplicate detection
+
+Episode calendar
+
+Release notifications
+
+---
+
+# 28. Non-Functional Requirements
+
+The application shall
+
+- use TypeScript strict mode
+- follow SOLID principles
+- use dependency injection where appropriate
+- avoid global mutable state
+- use asynchronous APIs
+- separate UI from business logic
+- separate services from persistence
+- use reusable React components
+- be modular
+- be easily testable
+- support future extensions without major refactoring
+
+---
+
+# 29. Deliverables
+
+Generate a complete production-ready application including
+
+- Electron backend
+- React frontend
+- TypeScript source code
+- SQLite database
+- Complete file monitoring
+- Processing engine
+- Filename parser
+- Subtitle handling
+- Complete MKVToolNix integration
+- Embedded subtitle detection
+- English subtitle extraction
+- Batch subtitle extraction
+- Web lookup (RLSBB provider)
+- NAS synchronization
+- NAS online detection
+- Mount/Unmount support
+- Local ↔ NAS comparison
+- Workflow shortcuts
+- Tools page
+- SSH integration
+- Logging system
+- Settings management
+- Unit tests
+- Integration tests
+- README.md
+- Installation instructions
+- Build scripts
+- Electron Builder configuration
+- Windows installer
+- Portable executable
+
+---
+
+# 30. Acceptance Criteria
+
+The project shall be considered complete when:
+
+✓ All configured folders are monitored correctly.
+
+✓ Files are processed only after explicit user interaction.
+
+✓ Converted videos are preferred over incoming videos.
+
+✓ Destination folders are created automatically.
+
+✓ Subtitles are correctly matched, renamed, and moved.
+
+✓ Embedded English subtitles are detected and displayed.
+
+✓ English subtitles can be extracted individually or in batches.
+
+✓ MKV metadata is cached and refreshed correctly.
+
+✓ Web lookup correctly identifies newer episodes.
+
+✓ New episodes are highlighted and counted.
+
+✓ Search results can be opened in the default browser.
+
+✓ NAS availability is monitored continuously.
+
+✓ Network drives can be mounted and unmounted.
+
+✓ Local vs NAS comparison only shows missing files.
+
+✓ Copy and Move operations verify successful transfers before deleting local files.
+
+✓ External applications launch correctly.
+
+✓ Workflow shortcuts open the correct folders.
+
+✓ All settings persist between application restarts.
+
+✓ Errors are handled gracefully and logged.
+
+✓ The UI remains responsive during long-running operations.
+
+✓ The architecture is modular, testable, and extensible.
+
+✓ The application is suitable for long-term maintenance and future feature expansion.

@@ -11,6 +11,7 @@ export { MigrationError } from './errors';
 export type { MigrationRunResult } from './migrationRunner';
 export { runMigrations } from './migrationRunner';
 export { getDefaultDatabasePath } from './paths';
+export * from './repositories';
 
 const DEFAULT_MIGRATIONS_DIR = join(__dirname, 'migrations');
 
