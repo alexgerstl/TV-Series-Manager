@@ -10,7 +10,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 
 | Milestone | Status | Tasks Done |
 |---|---|---|
-| M1 — Foundation | In Progress | 5 / 8 |
+| M1 — Foundation | In Progress | 6 / 8 |
 | M2 — Parser + File Monitor | Not Started | 0 / 4 |
 | M3 — MKVToolNix Integration | Not Started | 0 / 7 |
 | M4 — Processing Engine | Not Started | 0 / 6 |
@@ -20,7 +20,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 | M8 — Settings, Logs, Packaging | Not Started | 0 / 4 |
 | M9 — Hardening | Not Started | 0 / 3 |
 
-**Overall: 5 / 46 tasks complete.**
+**Overall: 6 / 46 tasks complete.**
 
 ---
 
@@ -33,7 +33,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 | M1.3 — Core schema migration | **Done** | 2026-07-10 | `0002_core_schema.sql` creates all 7 tables per architecture.md §4.2 (Settings, ManagedSeries, LookupHistory, MKVMetadata, Logs, ToolConfiguration, SyncLog) with all specified indexes. 15 integration tests against the real migration files: table/column shape per table, all indexes present, unique-constraint rejection (ManagedSeries.normalizedName, MKVMetadata.fullPath, ToolConfiguration.name), FK cascade-delete verified functionally (deleting a ManagedSeries row removes its LookupHistory rows), FK rejection of an orphan seriesId, default values (lookupEnabled=1, verified=0), and idempotent re-run at schema version 2. |
 | M1.4 — Repository layer skeleton | **Done** | 2026-07-10 | One repository class per entity (`SettingsRepository` get/set/getAll; `ManagedSeriesRepository`, `LookupHistoryRepository`, `MKVMetadataRepository`, `LogsRepository`, `ToolConfigurationRepository`, `SyncLogRepository` each with create/find methods) under `src/main/database/repositories/`, all constructor-injected with a `Database` handle — no raw SQL outside this layer. Row/domain types added under `src/main/models/` (one file per entity, matching architecture.md §3.1's folder layout) and re-exported through `database/index.ts`. 36 unit tests against a real temp SQLite DB (migrated via the actual migration files), covering create/read for every repository plus unique-constraint and FK-rejection behavior already proven at the schema level in M1.3. `typecheck`/`lint`/`test` all clean (66/66 tests passing). |
 | M1.5 — Settings Service + safeStorage integration | **Done** | 2026-07-10 | `SettingsService` (`src/main/settings/`) wraps `SettingsRepository` behind `ISettingsService`; generic `get`/`set` round-trip plaintext for non-secret keys. NAS password gets a dedicated encrypted path (`getNasPassword`/`setNasPassword`) via an injected `ISafeStorage` interface (narrow wrapper matching Electron's `safeStorage.isEncryptionAvailable`/`encryptString`/`decryptString`, DI'd so the service is unit-testable under plain Node/Vitest without a real Electron runtime — production wiring to Electron's real `safeStorage` deferred to whichever task first consumes it, e.g. M6.2). Ciphertext is base64-encoded into the `TEXT` value column. The reserved `nasPassword` key is hard-blocked from the generic `get`/`set` path (throws), so the "never plaintext" guarantee can't be bypassed by accident. 10 unit tests: plaintext round-trip asserted directly against raw DB bytes; NAS password round-trip; raw-DB-bytes assertion proving the stored value is neither the plaintext nor a containing substring of it, and matches `safeStorage.encryptString` exactly; safeStorage-unavailable failure path; reserved-key guard on both `get` and `set`. |
-| M1.6 — Logging Service | Not Started | | |
+| M1.6 — Logging Service | **Done** | 2026-07-10 | `LoggingService` (`src/main/logging/`) writes structured entries to the `Logs` table via `LogsRepository` and a console sink, one method per level (`debug`/`info`/`warn`/`error`). Console sink is behind an injected `IConsoleSink` interface — real implementation (`createPinoConsoleSink`) wraps `pino` (added as a new dependency, `^9.14.0`, per architecture.md §2/§3.1), fake implementation used in tests so no service code depends on pino directly. Redaction rule (architecture.md §6): a pure `redact()` function recursively replaces the value of any object key matching `password`/`credential` (case-insensitive substring) with `[REDACTED]` before a log call's context is serialized into the persisted `message` — applied identically to both the DB write and the console sink. `error()` accepts the causing error separately and stores its stack (or `String(value)` for non-`Error` throws) in the `exception` column. 19 unit tests: 7 for `redact()` in isolation (top-level/case-insensitive/substring/nested/array-nested/non-sensitive-passthrough/primitive-passthrough), 12 for `LoggingService` against a real temp SQLite DB — level/source/message/timestamp persistence, exception population, console-sink mirroring, and the redaction-in-persisted-message guarantee explicitly (including nested-field and console-sink cases). |
 | M1.7 — IPC contract scaffolding + shared error types | Not Started | | |
 | M1.8 — Empty tab shell UI | Not Started | | |
 
@@ -142,3 +142,4 @@ Carried forward from completed tasks — resolve opportunistically or dedicate c
 | 2026-07-10 | M1.3 complete — core schema migration (all 7 tables + indexes), 15 integration tests including functional FK cascade-delete and unique-constraint verification. |
 | 2026-07-10 | M1.4 complete — repository layer skeleton: one repository class per entity (7 total) with get/set-for-Settings and insert/find-for-the-rest per architecture.md's M1.4 spec, plus co-located row/domain types under `src/main/models/`. 36 unit tests. |
 | 2026-07-10 | M1.5 complete — `SettingsService` wrapping `SettingsRepository`, with an encrypted NAS-password path via an injectable `ISafeStorage` (safeStorage-backed in production, faked in tests) and a hard guard preventing the password from ever going through the plaintext `get`/`set` path. 10 unit tests, including a raw-DB-bytes assertion that the stored NAS password is genuinely ciphertext. |
+| 2026-07-10 | M1.6 complete — `LoggingService` (DB + console sink via injectable `IConsoleSink`, pino-backed in production) with a recursive `password`/`credential` redaction rule applied before persistence. Added `pino` as a new dependency. 19 unit tests, including explicit redaction-in-persisted-message coverage per the M1.6 Definition of Done. |
