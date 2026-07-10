@@ -5,12 +5,14 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
     "types": ["node", "vite/client"]
   },
   "include": [
     "*.config.ts",
     "electron.vite.config.ts",
     "vitest.config.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
   ]
 }
