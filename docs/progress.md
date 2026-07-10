@@ -10,7 +10,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 
 | Milestone | Status | Tasks Done |
 |---|---|---|
-| M1 — Foundation | In Progress | 4 / 8 |
+| M1 — Foundation | In Progress | 5 / 8 |
 | M2 — Parser + File Monitor | Not Started | 0 / 4 |
 | M3 — MKVToolNix Integration | Not Started | 0 / 7 |
 | M4 — Processing Engine | Not Started | 0 / 6 |
@@ -20,7 +20,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 | M8 — Settings, Logs, Packaging | Not Started | 0 / 4 |
 | M9 — Hardening | Not Started | 0 / 3 |
 
-**Overall: 4 / 46 tasks complete.**
+**Overall: 5 / 46 tasks complete.**
 
 ---
 
@@ -32,7 +32,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 | M1.2 — Database connection + migration runner | **Done** | 2026-07-10 | `better-sqlite3` connection module (WAL + foreign_keys pragmas), migration runner (`schema_migrations` table, per-migration transactions, fail-loud on error, idempotent re-run), placeholder `0001_init.sql`. Wired into `main.ts` startup — halts app on migration failure. 15 unit tests covering fresh-apply, idempotency, partial-new-migration runs, rollback-on-bad-SQL, retry-after-fix, duplicate-version rejection, and non-migration-file filtering. **Post-implementation fix (same day):** dev machine's Node 24 + Node 20 EOL required bumping `better-sqlite3` to v12 and the Node engine target to 22+ (see decisions.md); also hit and fixed an Electron-vs-Node native-module ABI mismatch via `predev`/`prebuild`/`pretest` rebuild hooks (see decisions.md). Verified working end-to-end on the dev machine — `npm run dev` launches cleanly. |
 | M1.3 — Core schema migration | **Done** | 2026-07-10 | `0002_core_schema.sql` creates all 7 tables per architecture.md §4.2 (Settings, ManagedSeries, LookupHistory, MKVMetadata, Logs, ToolConfiguration, SyncLog) with all specified indexes. 15 integration tests against the real migration files: table/column shape per table, all indexes present, unique-constraint rejection (ManagedSeries.normalizedName, MKVMetadata.fullPath, ToolConfiguration.name), FK cascade-delete verified functionally (deleting a ManagedSeries row removes its LookupHistory rows), FK rejection of an orphan seriesId, default values (lookupEnabled=1, verified=0), and idempotent re-run at schema version 2. |
 | M1.4 — Repository layer skeleton | **Done** | 2026-07-10 | One repository class per entity (`SettingsRepository` get/set/getAll; `ManagedSeriesRepository`, `LookupHistoryRepository`, `MKVMetadataRepository`, `LogsRepository`, `ToolConfigurationRepository`, `SyncLogRepository` each with create/find methods) under `src/main/database/repositories/`, all constructor-injected with a `Database` handle — no raw SQL outside this layer. Row/domain types added under `src/main/models/` (one file per entity, matching architecture.md §3.1's folder layout) and re-exported through `database/index.ts`. 36 unit tests against a real temp SQLite DB (migrated via the actual migration files), covering create/read for every repository plus unique-constraint and FK-rejection behavior already proven at the schema level in M1.3. `typecheck`/`lint`/`test` all clean (66/66 tests passing). |
-| M1.5 — Settings Service + safeStorage integration | Not Started | | |
+| M1.5 — Settings Service + safeStorage integration | **Done** | 2026-07-10 | `SettingsService` (`src/main/settings/`) wraps `SettingsRepository` behind `ISettingsService`; generic `get`/`set` round-trip plaintext for non-secret keys. NAS password gets a dedicated encrypted path (`getNasPassword`/`setNasPassword`) via an injected `ISafeStorage` interface (narrow wrapper matching Electron's `safeStorage.isEncryptionAvailable`/`encryptString`/`decryptString`, DI'd so the service is unit-testable under plain Node/Vitest without a real Electron runtime — production wiring to Electron's real `safeStorage` deferred to whichever task first consumes it, e.g. M6.2). Ciphertext is base64-encoded into the `TEXT` value column. The reserved `nasPassword` key is hard-blocked from the generic `get`/`set` path (throws), so the "never plaintext" guarantee can't be bypassed by accident. 10 unit tests: plaintext round-trip asserted directly against raw DB bytes; NAS password round-trip; raw-DB-bytes assertion proving the stored value is neither the plaintext nor a containing substring of it, and matches `safeStorage.encryptString` exactly; safeStorage-unavailable failure path; reserved-key guard on both `get` and `set`. |
 | M1.6 — Logging Service | Not Started | | |
 | M1.7 — IPC contract scaffolding + shared error types | Not Started | | |
 | M1.8 — Empty tab shell UI | Not Started | | |
@@ -141,3 +141,4 @@ Carried forward from completed tasks — resolve opportunistically or dedicate c
 | 2026-07-10 | Post-M1.2 fix: bumped Node engine target to 22+ and `better-sqlite3` to v12 (Node 20 EOL / Node 24 prebuild gap); added `@electron/rebuild` with automatic `predev`/`prebuild`/`pretest` ABI-switching hooks to resolve an Electron-vs-Node native module mismatch. `architecture.md` §2 and `decisions.md` updated. |
 | 2026-07-10 | M1.3 complete — core schema migration (all 7 tables + indexes), 15 integration tests including functional FK cascade-delete and unique-constraint verification. |
 | 2026-07-10 | M1.4 complete — repository layer skeleton: one repository class per entity (7 total) with get/set-for-Settings and insert/find-for-the-rest per architecture.md's M1.4 spec, plus co-located row/domain types under `src/main/models/`. 36 unit tests. |
+| 2026-07-10 | M1.5 complete — `SettingsService` wrapping `SettingsRepository`, with an encrypted NAS-password path via an injectable `ISafeStorage` (safeStorage-backed in production, faked in tests) and a hard guard preventing the password from ever going through the plaintext `get`/`set` path. 10 unit tests, including a raw-DB-bytes assertion that the stored NAS password is genuinely ciphertext. |
