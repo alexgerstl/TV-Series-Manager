@@ -10,7 +10,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 
 | Milestone | Status | Tasks Done |
 |---|---|---|
-| M1 — Foundation | In Progress | 1 / 8 |
+| M1 — Foundation | In Progress | 2 / 8 |
 | M2 — Parser + File Monitor | Not Started | 0 / 4 |
 | M3 — MKVToolNix Integration | Not Started | 0 / 7 |
 | M4 — Processing Engine | Not Started | 0 / 6 |
@@ -20,7 +20,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 | M8 — Settings, Logs, Packaging | Not Started | 0 / 4 |
 | M9 — Hardening | Not Started | 0 / 3 |
 
-**Overall: 1 / 46 tasks complete.**
+**Overall: 2 / 46 tasks complete.**
 
 ---
 
@@ -29,7 +29,7 @@ Status values: `Not Started` · `In Progress` · `Blocked` · `Done`
 | Task | Status | Date | Notes |
 |---|---|---|---|
 | M1.1 — Project scaffold | **Done** | 2026-07-10 | Electron+React+TS scaffold, ESLint/Prettier/Vitest/electron-builder wired. `typecheck`/`lint`/`test`/`build` all verified clean. Live `npm run dev` window launch manually verified on Windows — confirmed working 2026-07-10 after resolving a local Electron binary install issue (see note below). |
-| M1.2 — Database connection + migration runner | Not Started | | |
+| M1.2 — Database connection + migration runner | **Done** | 2026-07-10 | `better-sqlite3` connection module (WAL + foreign_keys pragmas), migration runner (`schema_migrations` table, per-migration transactions, fail-loud on error, idempotent re-run), placeholder `0001_init.sql`. Wired into `main.ts` startup — halts app on migration failure. 15 unit tests covering fresh-apply, idempotency, partial-new-migration runs, rollback-on-bad-SQL, retry-after-fix, duplicate-version rejection, and non-migration-file filtering. **Post-implementation fix (same day):** dev machine's Node 24 + Node 20 EOL required bumping `better-sqlite3` to v12 and the Node engine target to 22+ (see decisions.md); also hit and fixed an Electron-vs-Node native-module ABI mismatch via `predev`/`prebuild`/`pretest` rebuild hooks (see decisions.md). |
 | M1.3 — Core schema migration | Not Started | | |
 | M1.4 — Repository layer skeleton | Not Started | | |
 | M1.5 — Settings Service + safeStorage integration | Not Started | | |
@@ -125,6 +125,9 @@ Carried forward from completed tasks — resolve opportunistically or dedicate c
 - **From M1.1:** `docs/` folder in the scaffold is currently empty — SRS/decisions.md/architecture.md not yet copied in.
 - **From M1.1:** `eslint-import-resolver-typescript` required `--legacy-peer-deps` to install due to an ESLint 8/9 peer-range mismatch upstream. Lint runs clean; flagging in case this conflicts with a stricter dependency policy later.
 - **Resolved 2026-07-10:** Local `npm install` on the dev machine did not download the Electron binary (postinstall's `@electron/get` step failed silently — `ignore-scripts` was `false`, so likely a network/firewall restriction on GitHub release downloads specifically, since general npm registry access worked fine). Worked around by manually downloading `electron-v31.2.0-win32-x64.zip`, extracting it flat into `node_modules\electron\dist\`, and writing `node_modules\electron\dist\path.txt` containing exactly `electron.exe` (no trailing CRLF — `echo` on Windows appends one and breaks the spawn call with an `ENOENT` on a literal `electron.exe\r\n` path; use `Set-Content -NoNewline` instead). `npm run dev` now launches correctly. **Follow-up:** if this recurs on a clean setup or CI machine, the root network restriction should be diagnosed/allow-listed rather than repeating the manual workaround each time — worth a line in the README setup instructions once M8.4 (packaging) is reached.
+- **From M1.2:** `main.ts` logs database startup/failure via `console.log`/`console.error` as a deliberate placeholder — will be replaced with `LoggingService` (structured logging to the `Logs` table) in M1.6. Not a defect, just sequencing; flagging so it isn't mistaken for an oversight.
+- **Resolved 2026-07-10:** `better-sqlite3@11.10.0` had no prebuilt binary for Node 24 (dev machine's runtime), which made `npm install` fall back to source compilation requiring Python/node-gyp. Root cause: `architecture.md` was pinned to Node 20 LTS, which reached EOL in April 2026. Fixed by bumping `better-sqlite3` to `^12.11.1` (Node 24 prebuild support) and the `engines.node` target to `>=22.0.0`; `architecture.md` §2 updated accordingly. Logged as a dated decision in `decisions.md`.
+- **Resolved 2026-07-10:** After the above fix, the `better-sqlite3` native binary still failed to load inside the actual Electron app with `ERR_DLOPEN_FAILED` / NODE_MODULE_VERSION mismatch — Electron embeds its own Node/V8 build with a different ABI than the system Node.js used by Vitest. Fixed by adding `@electron/rebuild` and wiring `predev`/`prebuild` → rebuild for Electron's ABI, `pretest` → rebuild for plain Node's ABI, via npm's automatic `pre<script>` hooks. Verified both directions round-trip cleanly (tests pass after `pretest`, app loads the module correctly after `predev`/`prebuild`, confirmed via `ELECTRON_RUN_AS_NODE=1`). Logged in `decisions.md`; **follow-up for future tasks:** any new native (main-process-only) dependency will need the same `-w <package>` treatment added to these three scripts.
 
 ---
 
@@ -134,3 +137,5 @@ Carried forward from completed tasks — resolve opportunistically or dedicate c
 |---|---|
 | 2026-07-10 | File created. M1.1 marked Done. |
 | 2026-07-10 | M1.1 fully closed out — live `npm run dev` window launch verified on Windows after resolving a local Electron binary download/install issue (documented in Known Technical Debt). |
+| 2026-07-10 | M1.2 complete — database connection module, migration runner, placeholder migration, wired into app startup, 15 unit tests. |
+| 2026-07-10 | Post-M1.2 fix: bumped Node engine target to 22+ and `better-sqlite3` to v12 (Node 20 EOL / Node 24 prebuild gap); added `@electron/rebuild` with automatic `predev`/`prebuild`/`pretest` ABI-switching hooks to resolve an Electron-vs-Node native module mismatch. `architecture.md` §2 and `decisions.md` updated. |
